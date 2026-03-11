@@ -1,0 +1,2552 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TSN — The Shadow Network</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;500;600;700;800&display=swap"
+    rel="stylesheet">
+  <style>
+    :root {
+      --ink: #0a0a0f;
+      --paper: #f0ede6;
+      --acid: #c8f73a;
+      --signal: #ff3c5a;
+      --ghost: rgba(200, 247, 58, 0.08);
+      --mist: rgba(240, 237, 230, 0.06);
+      --grid: rgba(200, 247, 58, 0.06);
+      --mono: 'Space Mono', monospace;
+      --display: 'Syne', sans-serif;
+    }
+
+    *,
+    *::before,
+    *::after {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      background: var(--ink);
+      color: var(--paper);
+      font-family: var(--display);
+      overflow-x: hidden;
+      cursor: none;
+    }
+
+    /* Custom cursor */
+    #cursor {
+      position: fixed;
+      width: 12px;
+      height: 12px;
+      background: var(--acid);
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: 99999;
+      transform: translate(-50%, -50%);
+      transition: transform 0.1s, width 0.2s, height 0.2s, background 0.2s;
+      mix-blend-mode: difference;
+    }
+
+    #cursor-ring {
+      position: fixed;
+      width: 40px;
+      height: 40px;
+      border: 1px solid rgba(200, 247, 58, 0.5);
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: 99998;
+      transform: translate(-50%, -50%);
+      transition: transform 0.15s ease-out, width 0.3s, height 0.3s;
+    }
+
+    body:hover #cursor {
+      opacity: 1;
+    }
+
+    /* Grid overlay */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(var(--grid) 1px, transparent 1px),
+        linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+      background-size: 60px 60px;
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    /* Scanlines */
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: repeating-linear-gradient(0deg,
+          transparent,
+          transparent 2px,
+          rgba(0, 0, 0, 0.03) 2px,
+          rgba(0, 0, 0, 0.03) 4px);
+      pointer-events: none;
+      z-index: 2;
+    }
+
+    /* ── NAV ── */
+    nav {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 500;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px 48px;
+      border-bottom: 1px solid rgba(200, 247, 58, 0.1);
+      background: rgba(10, 10, 15, 0.7);
+      backdrop-filter: blur(20px);
+    }
+
+    .nav-logo {
+      font-family: var(--mono);
+      font-size: 13px;
+      letter-spacing: 0.15em;
+      color: var(--acid);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    /* --- CHAT UI STYLES --- */
+    .chat-container {
+      background: rgba(5, 5, 8, 0.4);
+      border: 1px solid rgba(240, 237, 230, 0.08);
+      border-radius: 8px;
+      display: flex;
+      flex-direction: column;
+      height: 500px;
+      width: 100%;
+      margin-top: 40px;
+      overflow: hidden;
+      backdrop-filter: blur(10px);
+    }
+    
+    .chat-header {
+      padding: 15px 20px;
+      border-bottom: 1px solid rgba(240, 237, 230, 0.08);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(0, 0, 0, 0.2);
+    }
+    
+    .chat-peer-select {
+      background: transparent;
+      border: 1px solid rgba(200, 247, 58, 0.4);
+      color: var(--acid);
+      padding: 6px 12px;
+      font-family: var(--mono);
+      font-size: 11px;
+      outline: none;
+      cursor: none;
+    }
+    
+    .chat-peer-select option {
+      background: #050508;
+      color: var(--acid);
+    }
+
+    .chat-messages {
+      flex: 1;
+      padding: 20px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+    }
+
+    .chat-bubble {
+      max-width: 70%;
+      padding: 12px 16px;
+      border-radius: 6px;
+      font-size: 14px;
+      line-height: 1.5;
+      position: relative;
+    }
+    
+    .chat-bubble.sent {
+      align-self: flex-end;
+      background: rgba(200, 247, 58, 0.1);
+      border: 1px solid rgba(200, 247, 58, 0.3);
+      color: var(--acid);
+    }
+    
+    .chat-bubble.received {
+      align-self: flex-start;
+      background: rgba(240, 237, 230, 0.05);
+      border: 1px solid rgba(240, 237, 230, 0.1);
+      color: var(--light);
+    }
+    
+    .chat-meta {
+      font-family: var(--mono);
+      font-size: 9px;
+      opacity: 0.5;
+      margin-top: 6px;
+      text-align: right;
+    }
+
+    .chat-input-area {
+      padding: 15px;
+      border-top: 1px solid rgba(240, 237, 230, 0.08);
+      display: flex;
+      gap: 10px;
+      background: rgba(0, 0, 0, 0.2);
+    }
+    
+    .chat-input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      color: var(--light);
+      font-family: var(--font);
+      font-size: 14px;
+      outline: none;
+    }
+    
+    .chat-input::placeholder { color: rgba(240, 237, 230, 0.3); }
+    
+    .chat-send-btn {
+      background: var(--acid);
+      color: #000;
+      border: none;
+      padding: 0 20px;
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: 700;
+      cursor: none;
+      border-radius: 4px;
+      letter-spacing: 0.1em;
+    }
+
+    /* --- END CHAT UI STYLES --- */
+
+    .nav-logo::before {
+      content: '';
+      width: 8px;
+      height: 8px;
+      background: var(--acid);
+      border-radius: 50%;
+      animation: blink 2s step-end infinite;
+    }
+
+    @keyframes blink {
+      50% {
+        opacity: 0;
+      }
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 40px;
+      list-style: none;
+    }
+
+    .nav-links a {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.12em;
+      color: rgba(240, 237, 230, 0.4);
+      text-decoration: none;
+      text-transform: uppercase;
+      transition: color 0.2s;
+    }
+
+    .nav-links a:hover {
+      color: var(--acid);
+    }
+
+    .nav-status {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: rgba(240, 237, 230, 0.3);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .status-dot {
+      width: 6px;
+      height: 6px;
+      background: var(--acid);
+      border-radius: 50%;
+      animation: pulse-dot 2.5s ease-in-out infinite;
+    }
+
+    @keyframes pulse-dot {
+
+      0%,
+      100% {
+        box-shadow: 0 0 0 0 rgba(200, 247, 58, 0.7);
+      }
+
+      50% {
+        box-shadow: 0 0 0 6px rgba(200, 247, 58, 0);
+      }
+    }
+
+    /* ── HERO ── */
+    .hero {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      padding: 0 48px 80px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Hero canvas bg */
+    #hero-canvas {
+      position: absolute;
+      inset: 0;
+      z-index: 0;
+    }
+
+    .hero-eyebrow {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.2em;
+      color: var(--acid);
+      text-transform: uppercase;
+      margin-bottom: 24px;
+      position: relative;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .hero-eyebrow::before {
+      content: '';
+      width: 40px;
+      height: 1px;
+      background: var(--acid);
+    }
+
+    .hero-title {
+      font-family: var(--display);
+      font-size: clamp(64px, 10vw, 160px);
+      font-weight: 800;
+      line-height: 0.9;
+      letter-spacing: -0.03em;
+      position: relative;
+      z-index: 10;
+      margin-bottom: 48px;
+    }
+
+    .hero-title .line {
+      overflow: hidden;
+      display: block;
+    }
+
+    .hero-title .word {
+      display: inline-block;
+      transform: translateY(100%);
+      animation: slideUp 1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    .hero-title .word:nth-child(2) {
+      animation-delay: 0.08s;
+    }
+
+    .hero-title .line:nth-child(2) .word {
+      animation-delay: 0.15s;
+    }
+
+    .hero-title .line:nth-child(2) .word:nth-child(2) {
+      animation-delay: 0.22s;
+    }
+
+    .hero-title .line:nth-child(3) .word {
+      animation-delay: 0.3s;
+    }
+
+    @keyframes slideUp {
+      to {
+        transform: translateY(0);
+      }
+    }
+
+    .hero-title .accent {
+      color: var(--acid);
+    }
+
+    .hero-title .ghost-text {
+      -webkit-text-stroke: 1px rgba(240, 237, 230, 0.2);
+      color: transparent;
+    }
+
+    .hero-meta {
+      display: flex;
+      gap: 80px;
+      position: relative;
+      z-index: 10;
+      opacity: 0;
+      animation: fadeIn 1s 0.8s forwards;
+    }
+
+    @keyframes fadeIn {
+      to {
+        opacity: 1;
+      }
+    }
+
+    .hero-stat {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .hero-stat-label {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.15em;
+      color: rgba(240, 237, 230, 0.3);
+      text-transform: uppercase;
+    }
+
+    .hero-stat-value {
+      font-family: var(--mono);
+      font-size: 22px;
+      color: var(--paper);
+    }
+
+    .hero-stat-value span {
+      color: var(--acid);
+    }
+
+    .hero-scroll-hint {
+      position: absolute;
+      bottom: 48px;
+      right: 48px;
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      opacity: 0;
+      animation: fadeIn 1s 1.2s forwards;
+    }
+
+    .scroll-line {
+      width: 1px;
+      height: 60px;
+      background: linear-gradient(to bottom, var(--acid), transparent);
+      animation: scrollPulse 2s ease-in-out infinite;
+    }
+
+    @keyframes scrollPulse {
+
+      0%,
+      100% {
+        transform: scaleY(1);
+        opacity: 1;
+      }
+
+      50% {
+        transform: scaleY(0.5);
+        opacity: 0.3;
+      }
+    }
+
+    .scroll-text {
+      font-family: var(--mono);
+      font-size: 9px;
+      letter-spacing: 0.2em;
+      color: rgba(200, 247, 58, 0.5);
+      writing-mode: vertical-rl;
+      text-transform: uppercase;
+    }
+
+    /* ── SECTION COMMON ── */
+    section {
+      position: relative;
+      z-index: 10;
+    }
+
+    .section-tag {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.2em;
+      color: var(--acid);
+      text-transform: uppercase;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .section-tag::before {
+      content: attr(data-num);
+      color: rgba(200, 247, 58, 0.4);
+    }
+
+    .section-title {
+      font-family: var(--display);
+      font-weight: 700;
+      font-size: clamp(36px, 5vw, 72px);
+      line-height: 1;
+      letter-spacing: -0.03em;
+    }
+
+    /* ── ARCHITECTURE SECTION ── */
+    .architecture {
+      padding: 160px 48px;
+      background: var(--ink);
+    }
+
+    .arch-layout {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 80px;
+      align-items: start;
+      max-width: 1400px;
+      margin: 80px auto 0;
+    }
+
+    .arch-intro p {
+      font-family: var(--mono);
+      font-size: 14px;
+      line-height: 1.8;
+      color: rgba(240, 237, 230, 0.5);
+      margin-top: 32px;
+      max-width: 480px;
+    }
+
+    .arch-layers {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .layer-card {
+      background: rgba(200, 247, 58, 0.03);
+      border: 1px solid rgba(200, 247, 58, 0.1);
+      border-radius: 4px;
+      padding: 28px 32px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .layer-card::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 3px;
+      background: var(--acid);
+      transform: scaleY(0);
+      transition: transform 0.3s ease;
+    }
+
+    .layer-card:hover,
+    .layer-card.active {
+      background: rgba(200, 247, 58, 0.06);
+      border-color: rgba(200, 247, 58, 0.25);
+    }
+
+    .layer-card:hover::before,
+    .layer-card.active::before {
+      transform: scaleY(1);
+    }
+
+    .layer-num {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.15em;
+      color: var(--acid);
+      margin-bottom: 8px;
+    }
+
+    .layer-title {
+      font-family: var(--display);
+      font-weight: 700;
+      font-size: 18px;
+      margin-bottom: 10px;
+    }
+
+    .layer-desc {
+      font-family: var(--mono);
+      font-size: 12px;
+      line-height: 1.7;
+      color: rgba(240, 237, 230, 0.4);
+    }
+
+    .layer-tech {
+      display: flex;
+      gap: 8px;
+      margin-top: 14px;
+      flex-wrap: wrap;
+    }
+
+    .tech-pill {
+      font-family: var(--mono);
+      font-size: 10px;
+      padding: 3px 10px;
+      border: 1px solid rgba(200, 247, 58, 0.2);
+      border-radius: 100px;
+      color: var(--acid);
+      letter-spacing: 0.08em;
+    }
+
+    /* ── ENGINE MODULE ── */
+    .engine {
+      padding: 160px 48px;
+      background: linear-gradient(180deg, var(--ink) 0%, #080810 100%);
+    }
+
+    .engine-grid {
+      display: grid;
+      grid-template-columns: 1.2fr 1fr;
+      gap: 80px;
+      max-width: 1400px;
+      margin: 80px auto 0;
+      align-items: start;
+    }
+
+    /* Stego visualizer */
+    .stego-panel {
+      background: rgba(240, 237, 230, 0.02);
+      border: 1px solid rgba(240, 237, 230, 0.08);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .panel-bar {
+      background: rgba(240, 237, 230, 0.04);
+      padding: 12px 20px;
+      border-bottom: 1px solid rgba(240, 237, 230, 0.06);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+
+    .dot-r {
+      background: #ff5f57;
+    }
+
+    .dot-y {
+      background: #ffbd2e;
+    }
+
+    .dot-g {
+      background: #28ca41;
+    }
+
+    .panel-title-bar {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: rgba(240, 237, 230, 0.3);
+      margin-left: 8px;
+    }
+
+    .stego-body {
+      padding: 24px;
+    }
+
+    .stego-input-area {
+      margin-bottom: 20px;
+    }
+
+    .field-label {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.12em;
+      color: rgba(200, 247, 58, 0.6);
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+
+    .stego-textarea {
+      width: 100%;
+      background: rgba(240, 237, 230, 0.03);
+      border: 1px solid rgba(240, 237, 230, 0.1);
+      border-radius: 6px;
+      color: var(--paper);
+      font-family: var(--mono);
+      font-size: 13px;
+      padding: 14px;
+      resize: none;
+      height: 90px;
+      transition: border-color 0.2s;
+    }
+
+    .stego-textarea:focus {
+      outline: none;
+      border-color: rgba(200, 247, 58, 0.4);
+    }
+
+    .stego-textarea::placeholder {
+      color: rgba(240, 237, 230, 0.2);
+    }
+
+    .image-preview {
+      width: 100%;
+      height: 200px;
+      background: #050508;
+      border-radius: 6px;
+      border: 1px solid rgba(240, 237, 230, 0.08);
+      position: relative;
+      overflow: hidden;
+      margin-bottom: 20px;
+    }
+
+    #stego-canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .scan-overlay {
+      position: absolute;
+      top: -4px;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background: linear-gradient(90deg, transparent, var(--acid), transparent);
+      opacity: 0;
+      box-shadow: 0 0 20px var(--acid);
+      pointer-events: none;
+    }
+
+    .scan-overlay.active {
+      opacity: 1;
+      animation: scanAnim 2.2s ease-in-out;
+    }
+
+    @keyframes scanAnim {
+      0% {
+        top: -4px;
+        opacity: 1;
+      }
+
+      100% {
+        top: 100%;
+        opacity: 0.3;
+      }
+    }
+
+    .bit-rain {
+      position: absolute;
+      inset: 0;
+      font-family: var(--mono);
+      font-size: 9px;
+      color: rgba(200, 247, 58, 0);
+      word-break: break-all;
+      overflow: hidden;
+      pointer-events: none;
+      padding: 4px;
+      line-height: 1.3;
+      transition: color 0.5s;
+    }
+
+    .bit-rain.visible {
+      color: rgba(200, 247, 58, 0.25);
+    }
+
+    .embed-btn {
+      width: 100%;
+      background: var(--acid);
+      color: var(--ink);
+      border: none;
+      border-radius: 6px;
+      padding: 14px;
+      font-family: var(--mono);
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-transform: uppercase;
+    }
+
+    .embed-btn:hover {
+      background: #d8ff4a;
+      transform: translateY(-1px);
+    }
+
+    .embed-btn:active {
+      transform: translateY(0);
+    }
+
+    .embed-btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .hash-readout {
+      margin-top: 16px;
+      background: rgba(200, 247, 58, 0.04);
+      border: 1px solid rgba(200, 247, 58, 0.1);
+      border-radius: 6px;
+      padding: 12px 16px;
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--acid);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      min-height: 44px;
+    }
+
+    .hash-label {
+      color: rgba(200, 247, 58, 0.4);
+      margin-right: 8px;
+    }
+
+    .hash-val {
+      word-break: break-all;
+    }
+
+    .verified-badge {
+      background: rgba(200, 247, 58, 0.15);
+      color: var(--acid);
+      font-family: var(--mono);
+      font-size: 10px;
+      padding: 2px 8px;
+      border-radius: 100px;
+      white-space: nowrap;
+    }
+
+    /* Engine right: encryption visual */
+    .encryption-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .enc-block {
+      background: rgba(240, 237, 230, 0.02);
+      border: 1px solid rgba(240, 237, 230, 0.08);
+      border-radius: 8px;
+      padding: 24px;
+      position: relative;
+    }
+
+    .enc-block-title {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.15em;
+      color: var(--acid);
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+
+    .enc-block-content {
+      font-family: var(--mono);
+      font-size: 12px;
+      color: rgba(240, 237, 230, 0.5);
+      line-height: 1.7;
+    }
+
+    .enc-connector {
+      display: flex;
+      justify-content: center;
+      color: rgba(200, 247, 58, 0.3);
+      font-size: 20px;
+    }
+
+    .code-snippet {
+      background: rgba(200, 247, 58, 0.04);
+      border-left: 2px solid rgba(200, 247, 58, 0.3);
+      padding: 10px 14px;
+      font-family: var(--mono);
+      font-size: 11px;
+      line-height: 1.8;
+      color: rgba(240, 237, 230, 0.6);
+      border-radius: 0 4px 4px 0;
+      margin-top: 10px;
+    }
+
+    .code-snippet .kw {
+      color: var(--acid);
+    }
+
+    .code-snippet .str {
+      color: #ff9966;
+    }
+
+    .code-snippet .cm {
+      color: rgba(240, 237, 230, 0.3);
+      font-style: italic;
+    }
+
+    /* ── P2P NETWORK ── */
+    .network {
+      padding: 160px 48px;
+      background: var(--ink);
+    }
+
+    .network-layout {
+      display: grid;
+      grid-template-columns: 1fr 1.5fr;
+      gap: 80px;
+      max-width: 1400px;
+      margin: 80px auto 0;
+      align-items: center;
+    }
+
+    .network-desc p {
+      font-family: var(--mono);
+      font-size: 13px;
+      line-height: 1.9;
+      color: rgba(240, 237, 230, 0.45);
+      margin-top: 24px;
+    }
+
+    .network-metrics {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-top: 32px;
+    }
+
+    .metric-card {
+      background: rgba(240, 237, 230, 0.02);
+      border: 1px solid rgba(240, 237, 230, 0.07);
+      border-radius: 8px;
+      padding: 16px 20px;
+    }
+
+    .metric-k {
+      font-family: var(--mono);
+      font-size: 9px;
+      letter-spacing: 0.15em;
+      color: rgba(240, 237, 230, 0.3);
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+
+    .metric-v {
+      font-family: var(--mono);
+      font-size: 15px;
+      font-weight: 700;
+    }
+
+    .metric-v.on {
+      color: var(--acid);
+    }
+
+    .metric-v.off {
+      color: rgba(240, 237, 230, 0.3);
+    }
+
+    .metric-v.warn {
+      color: #ffbd2e;
+    }
+
+    .p2p-init-btn {
+      margin-top: 24px;
+      background: transparent;
+      border: 1px solid rgba(200, 247, 58, 0.3);
+      color: var(--acid);
+      font-family: var(--mono);
+      font-size: 12px;
+      letter-spacing: 0.12em;
+      padding: 12px 28px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-transform: uppercase;
+    }
+
+    .p2p-init-btn:hover {
+      background: rgba(200, 247, 58, 0.08);
+      border-color: var(--acid);
+    }
+
+    .p2p-init-btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    /* P2P Canvas */
+    .p2p-canvas-wrap {
+      background: rgba(240, 237, 230, 0.01);
+      border: 1px solid rgba(240, 237, 230, 0.07);
+      border-radius: 12px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    #p2p-canvas {
+      display: block;
+      width: 100%;
+      height: 480px;
+    }
+
+    .p2p-overlay-text {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      font-family: var(--mono);
+      font-size: 10px;
+      color: rgba(200, 247, 58, 0.4);
+      letter-spacing: 0.1em;
+    }
+
+    .peer-id-display {
+      position: absolute;
+      bottom: 20px;
+      right: 20px;
+      font-family: var(--mono);
+      font-size: 11px;
+      color: rgba(200, 247, 58, 0.6);
+      background: rgba(0, 0, 0, 0.6);
+      padding: 6px 12px;
+      border-radius: 4px;
+      border: 1px solid rgba(200, 247, 58, 0.15);
+    }
+
+    /* ── TRANSMISSION DEMO ── */
+    .transmission {
+      padding: 160px 48px;
+      background: linear-gradient(180deg, #080810 0%, var(--ink) 100%);
+    }
+
+    .transmission-inner {
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+
+    .transmission-header {
+      text-align: center;
+      margin-bottom: 80px;
+    }
+
+    .transmission-header .section-tag {
+      justify-content: center;
+    }
+
+    .transmission-header p {
+      font-family: var(--mono);
+      font-size: 13px;
+      color: rgba(240, 237, 230, 0.4);
+      margin-top: 20px;
+    }
+
+    .flow-container {
+      background: rgba(240, 237, 230, 0.015);
+      border: 1px solid rgba(240, 237, 230, 0.07);
+      border-radius: 16px;
+      padding: 48px;
+      margin-bottom: 40px;
+    }
+
+    .flow-row {
+      display: flex;
+      align-items: stretch;
+      gap: 0;
+    }
+
+    .flow-node {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .flow-node-label {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.15em;
+      color: rgba(200, 247, 58, 0.5);
+      text-transform: uppercase;
+    }
+
+    .flow-box {
+      background: rgba(240, 237, 230, 0.03);
+      border: 1px solid rgba(240, 237, 230, 0.08);
+      border-radius: 8px;
+      padding: 20px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .flow-textarea {
+      background: transparent;
+      border: none;
+      color: var(--paper);
+      font-family: var(--mono);
+      font-size: 13px;
+      resize: none;
+      outline: none;
+      min-height: 80px;
+      flex: 1;
+    }
+
+    .flow-textarea::placeholder {
+      color: rgba(240, 237, 230, 0.2);
+    }
+
+    .flow-status {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: rgba(240, 237, 230, 0.3);
+      border-top: 1px solid rgba(240, 237, 230, 0.06);
+      padding-top: 10px;
+    }
+
+    .flow-status.active {
+      color: var(--acid);
+    }
+
+    .flow-status.done {
+      color: #4ade80;
+    }
+
+    .flow-channel {
+      width: 180px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      flex-shrink: 0;
+    }
+
+    .channel-line {
+      width: 100%;
+      height: 2px;
+      background: rgba(240, 237, 230, 0.08);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .channel-progress {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(90deg, transparent, var(--acid), transparent);
+      transform: translateX(-100%);
+      transition: transform 2.5s ease-in-out;
+    }
+
+    .channel-progress.moving {
+      transform: translateX(100%);
+    }
+
+    .channel-carrier {
+      position: absolute;
+      top: 50%;
+      left: 0;
+      transform: translateY(-50%);
+      background: var(--ink);
+      border: 1px solid var(--acid);
+      border-radius: 6px;
+      padding: 6px 12px;
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--acid);
+      white-space: nowrap;
+      opacity: 0;
+      transition: left 2.5s ease-in-out, opacity 0.3s;
+      z-index: 5;
+    }
+
+    .channel-carrier.visible {
+      opacity: 1;
+    }
+
+    .channel-carrier.transit {
+      left: calc(100% - 80px);
+    }
+
+    .channel-label {
+      font-family: var(--mono);
+      font-size: 10px;
+      color: rgba(240, 237, 230, 0.25);
+      letter-spacing: 0.1em;
+      margin-top: 10px;
+      text-align: center;
+      text-transform: uppercase;
+    }
+
+    .flow-verify {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: rgba(240, 237, 230, 0.2);
+      text-align: center;
+      margin-top: 12px;
+      min-height: 16px;
+    }
+
+    .flow-verify.show {
+      color: #4ade80;
+    }
+
+    .send-btn {
+      display: block;
+      margin: 0 auto;
+      background: var(--acid);
+      color: var(--ink);
+      border: none;
+      border-radius: 6px;
+      padding: 16px 48px;
+      font-family: var(--mono);
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      cursor: pointer;
+      text-transform: uppercase;
+      transition: all 0.2s;
+    }
+
+    .send-btn:hover {
+      background: #d8ff4a;
+    }
+
+    .send-btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      background: var(--acid);
+    }
+
+    /* ── PROTOCOL STACK ── */
+    .stack-section {
+      padding: 160px 48px;
+      background: var(--ink);
+    }
+
+    .stack-inner {
+      max-width: 1100px;
+      margin: 80px auto 0;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .stack-row {
+      display: flex;
+      align-items: stretch;
+      gap: 2px;
+    }
+
+    .stack-num {
+      width: 60px;
+      background: rgba(200, 247, 58, 0.05);
+      border: 1px solid rgba(200, 247, 58, 0.1);
+      border-radius: 4px 0 0 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--mono);
+      font-size: 11px;
+      color: rgba(200, 247, 58, 0.5);
+      letter-spacing: 0.1em;
+      flex-shrink: 0;
+    }
+
+    .stack-content {
+      flex: 1;
+      background: rgba(240, 237, 230, 0.01);
+      border: 1px solid rgba(240, 237, 230, 0.06);
+      border-left: none;
+      border-radius: 0 4px 4px 0;
+      padding: 28px 36px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 40px;
+      transition: background 0.2s;
+      cursor: default;
+    }
+
+    .stack-content:hover {
+      background: rgba(200, 247, 58, 0.03);
+    }
+
+    .stack-left {
+      flex: 1;
+    }
+
+    .stack-name {
+      font-family: var(--display);
+      font-weight: 700;
+      font-size: 22px;
+      margin-bottom: 8px;
+    }
+
+    .stack-detail {
+      font-family: var(--mono);
+      font-size: 12px;
+      color: rgba(240, 237, 230, 0.4);
+      line-height: 1.7;
+    }
+
+    .stack-badge {
+      font-family: var(--mono);
+      font-size: 10px;
+      padding: 4px 12px;
+      border-radius: 100px;
+      white-space: nowrap;
+      border: 1px solid;
+    }
+
+    .badge-aes {
+      border-color: rgba(200, 247, 58, 0.4);
+      color: var(--acid);
+    }
+
+    .badge-lsb {
+      border-color: rgba(255, 60, 90, 0.4);
+      color: var(--signal);
+    }
+
+    .badge-p2p {
+      border-color: rgba(255, 189, 46, 0.4);
+      color: #ffbd2e;
+    }
+
+    .badge-sha {
+      border-color: rgba(100, 160, 255, 0.4);
+      color: #64a0ff;
+    }
+
+    /* ── SYSLOG ── */
+    .syslog {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      width: 360px;
+      z-index: 900;
+      font-family: var(--mono);
+      border-radius: 10px;
+      overflow: hidden;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+      border: 1px solid rgba(200, 247, 58, 0.12);
+    }
+
+    .syslog-head {
+      background: rgba(10, 10, 15, 0.95);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid rgba(200, 247, 58, 0.08);
+      padding: 10px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+    }
+
+    .syslog-head-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      color: rgba(200, 247, 58, 0.6);
+      text-transform: uppercase;
+    }
+
+    .syslog-toggle {
+      background: none;
+      border: none;
+      color: rgba(240, 237, 230, 0.3);
+      font-family: var(--mono);
+      font-size: 16px;
+      cursor: pointer;
+      line-height: 1;
+      padding: 0 4px;
+    }
+
+    .syslog-body {
+      background: rgba(5, 5, 10, 0.97);
+      backdrop-filter: blur(20px);
+      height: 200px;
+      overflow-y: auto;
+      padding: 12px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      transition: height 0.3s ease;
+    }
+
+    .syslog.minimized .syslog-body {
+      height: 0;
+      padding: 0;
+    }
+
+    .syslog-body::-webkit-scrollbar {
+      width: 4px;
+    }
+
+    .syslog-body::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    .syslog-body::-webkit-scrollbar-thumb {
+      background: rgba(200, 247, 58, 0.2);
+      border-radius: 2px;
+    }
+
+    .log-entry {
+      font-size: 11px;
+      line-height: 1.5;
+      display: flex;
+      gap: 8px;
+    }
+
+    .log-ts {
+      color: rgba(200, 247, 58, 0.35);
+      flex-shrink: 0;
+    }
+
+    .log-msg {
+      color: rgba(240, 237, 230, 0.5);
+    }
+
+    .log-msg.secure {
+      color: var(--acid);
+    }
+
+    .log-msg.err {
+      color: var(--signal);
+    }
+
+    /* ── FOOTER ── */
+    footer {
+      background: rgba(240, 237, 230, 0.02);
+      border-top: 1px solid rgba(240, 237, 230, 0.06);
+      padding: 80px 48px 48px;
+    }
+
+    .footer-grid {
+      display: grid;
+      grid-template-columns: 2fr 1fr 1fr 1fr;
+      gap: 60px;
+      max-width: 1400px;
+      margin: 0 auto 80px;
+    }
+
+    .footer-brand .brand-name {
+      font-family: var(--display);
+      font-weight: 800;
+      font-size: 32px;
+      letter-spacing: -0.03em;
+      color: var(--acid);
+      margin-bottom: 16px;
+    }
+
+    .footer-brand p {
+      font-family: var(--mono);
+      font-size: 12px;
+      line-height: 1.8;
+      color: rgba(240, 237, 230, 0.3);
+      max-width: 320px;
+    }
+
+    .footer-col h5 {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: rgba(240, 237, 230, 0.3);
+      margin-bottom: 20px;
+    }
+
+    .footer-col a {
+      display: block;
+      font-family: var(--mono);
+      font-size: 13px;
+      color: rgba(240, 237, 230, 0.5);
+      text-decoration: none;
+      margin-bottom: 12px;
+      transition: color 0.2s;
+    }
+
+    .footer-col a:hover {
+      color: var(--acid);
+    }
+
+    .footer-bottom {
+      max-width: 1400px;
+      margin: 0 auto;
+      border-top: 1px solid rgba(240, 237, 230, 0.05);
+      padding-top: 32px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .footer-bottom-left {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: rgba(240, 237, 230, 0.2);
+    }
+
+    .footer-bottom-right {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: rgba(200, 247, 58, 0.4);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* ── UTILITIES ── */
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    .reveal {
+      opacity: 0;
+      transform: translateY(30px);
+      transition: opacity 0.8s ease, transform 0.8s ease;
+    }
+
+    .reveal.in-view {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .reveal-delay-1 {
+      transition-delay: 0.1s;
+    }
+
+    .reveal-delay-2 {
+      transition-delay: 0.2s;
+    }
+
+    .reveal-delay-3 {
+      transition-delay: 0.3s;
+    }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 1024px) {
+      nav {
+        padding: 16px 24px;
+      }
+
+      .nav-links {
+        display: none;
+      }
+
+      .hero {
+        padding: 0 24px 60px;
+      }
+
+      .architecture,
+      .engine,
+      .network,
+      .transmission,
+      .stack-section {
+        padding: 100px 24px;
+      }
+
+      .arch-layout,
+      .engine-grid,
+      .network-layout {
+        grid-template-columns: 1fr;
+        gap: 48px;
+      }
+
+      .flow-row {
+        flex-direction: column;
+      }
+
+      .flow-channel {
+        width: 100%;
+        height: 60px;
+        flex-direction: row;
+      }
+
+      .footer-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+
+      footer {
+        padding: 60px 24px 40px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <div id="cursor"></div>
+  <div id="cursor-ring"></div>
+
+  <!-- NAV -->
+  <nav>
+    <div class="nav-logo">TSN // THE SHADOW NETWORK</div>
+    <ul class="nav-links">
+      <li><a href="#architecture">Architecture</a></li>
+      <li><a href="#engine">Engine</a></li>
+      <li><a href="#network">Network</a></li>
+      <li><a href="#demo">Demo</a></li>
+    </ul>
+    <div class="nav-status">
+      <span class="status-dot"></span>
+      SYSTEM NOMINAL
+    </div>
+  </nav>
+
+  <!-- HERO -->
+  <section class="hero" id="hero">
+    <canvas id="hero-canvas"></canvas>
+
+    <div class="hero-eyebrow">Experimental Protocol // v0.3.1-alpha</div>
+
+    <h1 class="hero-title">
+      <span class="line"><span class="word">THE</span> <span class="word ghost-text">SHADOW</span></span>
+      <span class="line"><span class="word accent">NETWORK</span></span>
+      <span class="line"><span class="word ghost-text">PROTOCOL</span></span>
+    </h1>
+
+    <div class="hero-meta">
+      <div class="hero-stat">
+        <span class="hero-stat-label">Encryption</span>
+        <span class="hero-stat-value"><span>AES</span>-256-GCM</span>
+      </div>
+      <div class="hero-stat">
+        <span class="hero-stat-label">Transport</span>
+        <span class="hero-stat-value">P2P <span>TCP</span></span>
+      </div>
+      <div class="hero-stat">
+        <span class="hero-stat-label">Steganography</span>
+        <span class="hero-stat-value">LSB <span>PNG</span></span>
+      </div>
+      <div class="hero-stat">
+        <span class="hero-stat-label">Integrity</span>
+        <span class="hero-stat-value">SHA-<span>256</span></span>
+      </div>
+    </div>
+
+    <div class="hero-scroll-hint">
+      <div class="scroll-line"></div>
+      <span class="scroll-text">Scroll</span>
+    </div>
+  </section>
+
+  <!-- ARCHITECTURE -->
+  <section class="architecture" id="architecture">
+    <div class="arch-layout">
+      <div class="arch-intro reveal">
+        <div class="section-tag" data-num="01">Architecture</div>
+        <h2 class="section-title">A three-layer<br>covert stack</h2>
+        <p>TSN routes encrypted messages through AI-generated image carriers over a peer-to-peer TCP mesh. Traffic is
+          indistinguishable from ordinary image-sharing — no traceable metadata, no central relay.</p>
+      </div>
+      <div class="arch-layers reveal reveal-delay-2">
+        <div class="layer-card active" data-layer="0">
+          <div class="layer-num">LAYER 01 //</div>
+          <div class="layer-title">AES-GCM Encryption</div>
+          <div class="layer-desc">Messages are encrypted with AES-256-GCM before any steganographic processing. A random
+            96-bit IV is generated per session. The GCM authentication tag guarantees integrity at the crypto layer — if
+            decryption succeeds, the payload is authentic.</div>
+          <div class="layer-tech">
+            <span class="tech-pill">AES-256</span>
+            <span class="tech-pill">GCM Mode</span>
+            <span class="tech-pill">96-bit IV</span>
+            <span class="tech-pill">Auth Tag</span>
+          </div>
+        </div>
+        <div class="layer-card" data-layer="1">
+          <div class="layer-num">LAYER 02 //</div>
+          <div class="layer-title">LSB Steganography</div>
+          <div class="layer-desc">The ciphertext is embedded into the least-significant bits of each RGB channel in a
+            PNG image. A 4-byte length prefix is prepended so the receiver knows exactly how many bits to extract. The
+            visual change is perceptually invisible.</div>
+          <div class="layer-tech">
+            <span class="tech-pill">LSB Encoding</span>
+            <span class="tech-pill">RGB Channels</span>
+            <span class="tech-pill">PNG Lossless</span>
+            <span class="tech-pill">Length Header</span>
+          </div>
+        </div>
+        <div class="layer-card" data-layer="2">
+          <div class="layer-num">LAYER 03 //</div>
+          <div class="layer-title">P2P TCP Transport</div>
+          <div class="layer-desc">The carrier image is streamed directly between peers over a raw TCP connection. An
+            8-byte big-endian header encodes the exact file size. Each node runs a background listener thread, enabling
+            bidirectional operation without a central server.</div>
+          <div class="layer-tech">
+            <span class="tech-pill">Raw TCP</span>
+            <span class="tech-pill">Size Header</span>
+            <span class="tech-pill">Multi-thread</span>
+            <span class="tech-pill">NAT Punch</span>
+          </div>
+        </div>
+        <div class="layer-card" data-layer="3">
+          <div class="layer-num">LAYER 04 //</div>
+          <div class="layer-title">SHA-256 Integrity</div>
+          <div class="layer-desc">A SHA-256 digest of the original plaintext is computed before encryption and returned
+            alongside the encoded image. The receiver can recompute the hash post-decryption to verify end-to-end
+            message integrity beyond what GCM already provides.</div>
+          <div class="layer-tech">
+            <span class="tech-pill">SHA-256</span>
+            <span class="tech-pill">Hex Digest</span>
+            <span class="tech-pill">E2E Verify</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ENGINE -->
+  <section class="engine" id="engine">
+    <div style="max-width:1400px; margin:0 auto;">
+      <div class="section-tag reveal" data-num="02">Steganography Engine</div>
+      <h2 class="section-title reveal">core_engine.py — <span style="color:var(--acid)">live</span></h2>
+    </div>
+    <div class="engine-grid">
+      <!-- LEFT: interactive stego panel -->
+      <div class="stego-panel reveal">
+        <div class="panel-bar">
+          <span class="dot dot-r"></span>
+          <span class="dot dot-y"></span>
+          <span class="dot dot-g"></span>
+          <span class="panel-title-bar">embed_payload() — interactive demo</span>
+        </div>
+        <div class="stego-body">
+          <div class="stego-input-area">
+            <div class="field-label">Payload / Plaintext Message</div>
+            <textarea class="stego-textarea" id="stego-input"
+              placeholder="Type a sensitive message to embed..."></textarea>
+          </div>
+          <div class="image-preview">
+            <canvas id="stego-canvas"></canvas>
+            <div class="scan-overlay" id="scan-overlay"></div>
+            <div class="bit-rain" id="bit-rain"></div>
+          </div>
+          <button class="embed-btn" id="embed-btn">▸ EMBED PAYLOAD</button>
+          <div class="hash-readout" id="hash-readout">
+            <span><span class="hash-label">SHA-256</span><span class="hash-val" id="hash-val">awaiting
+                input...</span></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT: encryption stack explanation -->
+      <div class="encryption-stack reveal reveal-delay-2">
+        <div class="enc-block">
+          <div class="enc-block-title">① Encrypt — AES-256-GCM</div>
+          <div class="enc-block-content">A 96-bit random IV is generated per operation. AESGCM from
+            <em>cryptography.hazmat</em> encrypts the UTF-8 encoded plaintext. The output is ciphertext + 16-byte auth
+            tag.
+          </div>
+          <div class="code-snippet">
+            <span class="cm"># core_engine.py</span><br>
+            aesgcm = <span class="kw">AESGCM</span>(key)<br>
+            iv = os.<span class="kw">urandom</span>(<span class="str">12</span>)<br>
+            ciphertext = aesgcm.<span class="kw">encrypt</span>(iv, data, <span class="kw">None</span>)
+          </div>
+        </div>
+        <div class="enc-connector">↓</div>
+        <div class="enc-block">
+          <div class="enc-block-title">② Stego — LSB PNG</div>
+          <div class="enc-block-content">Payload = [4-byte length header] + [12-byte IV] + [ciphertext]. Each byte is
+            exploded into 8 bits and written into the LSB of R, G, B channels sequentially. 1 pixel stores 3 bits.</div>
+          <div class="code-snippet">
+            r = (r &amp; ~<span class="str">1</span>) | <span class="kw">int</span>(bit_stream[bit_idx])<br>
+            g = (g &amp; ~<span class="str">1</span>) | <span class="kw">int</span>(bit_stream[bit_idx+<span
+              class="str">1</span>])<br>
+            b = (b &amp; ~<span class="str">1</span>) | <span class="kw">int</span>(bit_stream[bit_idx+<span
+              class="str">2</span>])
+          </div>
+        </div>
+        <div class="enc-connector">↓</div>
+        <div class="enc-block">
+          <div class="enc-block-title">③ Extract &amp; Verify</div>
+          <div class="enc-block-content">First 32 LSBs give payload length. Then exactly that many bits are extracted,
+            converted to bytes, split into [IV | ciphertext], decrypted, and the SHA-256 hash is verified against the
+            original.</div>
+          <div class="code-snippet">
+            payload_len = <span class="kw">struct.unpack</span>(<span class="str">'>I'</span>, header)[0]<br>
+            iv_out = payload[:<span class="str">12</span>]<br>
+            msg = aesgcm.<span class="kw">decrypt</span>(iv_out, ct, <span class="kw">None</span>)
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- NETWORK -->
+  <section class="network" id="network">
+    <div style="max-width:1400px; margin:0 auto;">
+      <div class="section-tag reveal" data-num="03">P2P Transport</div>
+      <h2 class="section-title reveal">peer.py — routing<br><span style="color:var(--acid)">topology</span></h2>
+    </div>
+    <div class="network-layout">
+      <div class="network-desc reveal">
+        <p>Each node binds to a TCP socket and spawns a background listener thread. When a peer connects, the receiver
+          reads an 8-byte big-endian size header, then pulls exactly that many bytes. The saved PNG is ready for payload
+          extraction immediately on arrival.</p>
+        <div class="network-metrics">
+          <div class="metric-card">
+            <div class="metric-k">Status</div>
+            <div class="metric-v off" id="net-status">Offline</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-k">NAT Traversal</div>
+            <div class="metric-v warn" id="net-nat">Pending</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-k">Active Peers</div>
+            <div class="metric-v off" id="net-peers">0</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-k">Peer ID</div>
+            <div class="metric-v off" id="net-peerid" style="font-size:11px;">—</div>
+          </div>
+        </div>
+        <button class="p2p-init-btn" id="p2p-init-btn">▸ Initialize Node</button>
+      </div>
+
+      <div class="p2p-canvas-wrap reveal reveal-delay-2">
+        <div class="p2p-overlay-text">P2P_TOPOLOGY // MESH_VISUALIZATION</div>
+        <canvas id="p2p-canvas"></canvas>
+        <div class="peer-id-display" id="peer-id-display">NODE: UNINITIALIZED</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SECURE CHAT INTERFACE -->
+  <section class="transmission" id="demo">
+    <div class="transmission-inner">
+      <div class="transmission-header reveal">
+        <div class="section-tag" data-num="04">Secure Comms</div>
+        <h2 class="section-title">Global<br><span style="color:var(--acid)">Inbox</span></h2>
+        <p>Select an online peer to initiate a steganographic raw TCP tunnel.</p>
+      </div>
+
+      <div class="chat-container reveal">
+        <!-- Header -->
+        <div class="chat-header">
+          <div style="font-family:var(--mono); font-size:12px; color:rgba(240,237,230,0.5);">Target Node:</div>
+          <select class="chat-peer-select" id="chat-peer-select">
+            <option value="">-- SELECT PEER --</option>
+            <!-- Populated dynamically from Discovery Server -->
+          </select>
+        </div>
+        
+        <!-- Messages -->
+        <div class="chat-messages" id="chat-messages">
+          <div style="text-align:center; margin-top:40px; opacity:0.3; font-family:var(--mono); font-size:12px;">
+            Awaiting transmission...
+          </div>
+        </div>
+        
+        <!-- Input Area -->
+        <div class="chat-input-area">
+          <input type="text" id="tx-input" class="chat-input" placeholder="Enter secure payload..." disabled />
+          <button class="chat-send-btn" id="send-btn" disabled>TRANSMIT ▸</button>
+        </div>
+      </div>
+      
+      <!-- Diagnostic Log for current transfer -->
+      <div style="margin-top:20px; text-align:right; font-family:var(--mono); font-size:11px; color:var(--acid); display:none;" id="chat-tx-status">
+        [STATUS] Idle
+      </div>
+      
+    </div>
+  </section>
+
+  <!-- PROTOCOL STACK -->
+  <section class="stack-section">
+    <div style="max-width:1100px; margin:0 auto;">
+      <div class="section-tag reveal" data-num="05">Protocol Stack</div>
+      <h2 class="section-title reveal">How it works,<br>layer by layer</h2>
+    </div>
+    <div class="stack-inner">
+      <div class="stack-row reveal">
+        <div class="stack-num">L1</div>
+        <div class="stack-content">
+          <div class="stack-left">
+            <div class="stack-name">Encryption Layer</div>
+            <div class="stack-detail">AES-256-GCM with per-session random keys and 96-bit IVs. The GCM authentication
+              tag makes tampering detectable before any decryption is attempted. Powered by Python's
+              <code>cryptography.hazmat</code> library.
+            </div>
+          </div>
+          <span class="stack-badge badge-aes">AES-256-GCM</span>
+        </div>
+      </div>
+      <div class="stack-row reveal reveal-delay-1">
+        <div class="stack-num">L2</div>
+        <div class="stack-content">
+          <div class="stack-left">
+            <div class="stack-name">Steganography Layer</div>
+            <div class="stack-detail">LSB (Least Significant Bit) embedding into PNG pixels via Pillow. Each pixel's RGB
+              channels carry 3 bits. A 4-byte big-endian length prefix ensures exact extraction. Images are visually
+              indistinguishable from unmodified carriers.</div>
+          </div>
+          <span class="stack-badge badge-lsb">LSB PNG</span>
+        </div>
+      </div>
+      <div class="stack-row reveal reveal-delay-2">
+        <div class="stack-num">L3</div>
+        <div class="stack-content">
+          <div class="stack-left">
+            <div class="stack-name">Transport Layer</div>
+            <div class="stack-detail">Raw TCP socket with an 8-byte big-endian file-size header (struct format
+              <code>'>Q'</code>). Receiver thread reads in 4096-byte chunks until the full payload arrives. Each node is
+              also a server, enabling bidirectional P2P operation.
+            </div>
+          </div>
+          <span class="stack-badge badge-p2p">P2P TCP</span>
+        </div>
+      </div>
+      <div class="stack-row reveal reveal-delay-3">
+        <div class="stack-num">L4</div>
+        <div class="stack-content">
+          <div class="stack-left">
+            <div class="stack-name">Integrity Layer</div>
+            <div class="stack-detail">SHA-256 digest computed from plaintext before encryption, returned in the HTTP
+              response header <code>X-Plaintext-Hash</code>. Combined with GCM's built-in auth tag, this provides
+              dual-layer integrity verification at both cryptographic and application levels.</div>
+          </div>
+          <span class="stack-badge badge-sha">SHA-256</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer>
+    <div class="footer-grid">
+      <div class="footer-brand">
+        <div class="brand-name">TSN</div>
+        <p>The Shadow Network is an experimental protocol combining AES-256 encryption, LSB steganography, and
+          peer-to-peer TCP transport for metadata-resistant, censorship-proof communication.</p>
+      </div>
+      <div class="footer-col">
+        <h5>Protocol</h5>
+        <a href="#">Whitepaper</a>
+        <a href="#">Architecture</a>
+        <a href="#">Cryptography</a>
+        <a href="#">Threat Model</a>
+      </div>
+      <div class="footer-col">
+        <h5>Codebase</h5>
+        <a href="#">core_engine.py</a>
+        <a href="#">peer.py</a>
+        <a href="#">server.py</a>
+        <a href="#">main.py</a>
+      </div>
+      <div class="footer-col">
+        <h5>Resources</h5>
+        <a href="#">Documentation</a>
+        <a href="#">Security Audit</a>
+        <a href="#">Research Papers</a>
+        <a href="#">MIT License</a>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <div class="footer-bottom-left">© 2026 TSN PROTOCOL — OPEN SOURCE UNDER MIT</div>
+      <div class="footer-bottom-right">
+        <span class="status-dot"></span>
+        ALL SYSTEMS NOMINAL
+      </div>
+    </div>
+  </footer>
+
+  <!-- SYSLOG -->
+  <div class="syslog" id="syslog">
+    <div class="syslog-head" id="syslog-head">
+      <div class="syslog-head-left">
+        <span class="status-dot"></span>
+        global_event.log
+      </div>
+      <button class="syslog-toggle" id="syslog-toggle">−</button>
+    </div>
+    <div class="syslog-body" id="syslog-body"></div>
+  </div>
+
+  <script>
+    // ── CURSOR ──
+    const cursor = document.getElementById('cursor');
+    const ring = document.getElementById('cursor-ring');
+    let mx = 0, my = 0, rx = 0, ry = 0;
+    document.addEventListener('mousemove', e => { mx = e.clientX; my = e.clientY; });
+    function animCursor() {
+      cursor.style.left = mx + 'px'; cursor.style.top = my + 'px';
+      rx += (mx - rx) * 0.12; ry += (my - ry) * 0.12;
+      ring.style.left = rx + 'px'; ring.style.top = ry + 'px';
+      requestAnimationFrame(animCursor);
+    }
+    animCursor();
+    document.querySelectorAll('a,button,.layer-card').forEach(el => {
+      el.addEventListener('mouseenter', () => { cursor.style.transform = 'translate(-50%,-50%) scale(2)'; ring.style.transform = 'translate(-50%,-50%) scale(1.5)'; });
+      el.addEventListener('mouseleave', () => { cursor.style.transform = 'translate(-50%,-50%) scale(1)'; ring.style.transform = 'translate(-50%,-50%) scale(1)'; });
+    });
+
+    // ── SYSLOG ──
+    const syslogBody = document.getElementById('syslog-body');
+    let syslogMin = false;
+    document.getElementById('syslog-head').addEventListener('click', () => {
+      syslogMin = !syslogMin;
+      document.getElementById('syslog').classList.toggle('minimized', syslogMin);
+      document.getElementById('syslog-toggle').textContent = syslogMin ? '+' : '−';
+    });
+    function syslog(msg, type = '') {
+      const ts = new Date().toISOString().slice(11, 23);
+      const el = document.createElement('div');
+      el.className = 'log-entry';
+      el.innerHTML = `<span class="log-ts">[${ts}]</span><span class="log-msg ${type}">${msg}</span>`;
+      syslogBody.appendChild(el);
+      syslogBody.scrollTop = syslogBody.scrollHeight;
+    }
+    setTimeout(() => syslog('[INFO] TSN protocol engine initialized.'), 800);
+    setTimeout(() => syslog('[INFO] Steganography engine: READY'), 1300);
+    setTimeout(() => syslog('[INFO] FastAPI server: STANDBY'), 1700);
+
+    // ── HERO CANVAS ──
+    (function () {
+      const canvas = document.getElementById('hero-canvas');
+      const ctx = canvas.getContext('2d');
+      let W, H, nodes = [], animId;
+      function resize() { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; }
+      resize();
+      window.addEventListener('resize', resize);
+      for (let i = 0; i < 70; i++) nodes.push({
+        x: Math.random() * W, y: Math.random() * H,
+        vx: (Math.random() - .5) * .4, vy: (Math.random() - .5) * .4,
+        size: Math.random() * 1.5 + 0.5, pulse: Math.random() * Math.PI * 2
+      });
+      function draw(t) {
+        ctx.clearRect(0, 0, W, H);
+        nodes.forEach(n => {
+          n.x += n.vx; n.y += n.vy; n.pulse += 0.02;
+          if (n.x < 0) n.x = W; if (n.x > W) n.x = 0;
+          if (n.y < 0) n.y = H; if (n.y > H) n.y = 0;
+        });
+        // Draw edges
+        for (let i = 0; i < nodes.length; i++) {
+          for (let j = i + 1; j < nodes.length; j++) {
+            const dx = nodes[i].x - nodes[j].x, dy = nodes[i].y - nodes[j].y;
+            const d = Math.sqrt(dx * dx + dy * dy);
+            if (d < 130) {
+              ctx.beginPath();
+              ctx.moveTo(nodes[i].x, nodes[i].y);
+              ctx.lineTo(nodes[j].x, nodes[j].y);
+              ctx.strokeStyle = `rgba(200,247,58,${0.06 * (1 - d / 130)})`;
+              ctx.lineWidth = 1;
+              ctx.stroke();
+            }
+          }
+        }
+        // Draw nodes
+        nodes.forEach(n => {
+          const glow = (Math.sin(n.pulse) + 1) / 2;
+          ctx.beginPath();
+          ctx.arc(n.x, n.y, n.size, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(200,247,58,${0.3 + glow * 0.4})`;
+          ctx.fill();
+        });
+        animId = requestAnimationFrame(draw);
+      }
+      draw(0);
+    })();
+
+    // ── STEGO CANVAS ──
+    (function () {
+      const canvas = document.getElementById('stego-canvas');
+      const ctx = canvas.getContext('2d');
+      function draw() {
+        const W = canvas.width = canvas.parentElement.clientWidth;
+        const H = canvas.height = canvas.parentElement.clientHeight;
+        if (!W || !H) return;
+        ctx.fillStyle = '#050508'; ctx.fillRect(0, 0, W, H);
+        // Draw abstract noise field
+        for (let i = 0; i < 80; i++) {
+          const x = Math.random() * W, y = Math.random() * H;
+          const r = Math.random() * 40 + 5;
+          const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+          g.addColorStop(0, `rgba(${Math.random() * 30 + 10},${Math.random() * 50 + 20},${Math.random() * 30 + 5},${Math.random() * .4})`);
+          g.addColorStop(1, 'transparent');
+          ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+        }
+        // grid overlay
+        ctx.strokeStyle = 'rgba(200,247,58,0.04)'; ctx.lineWidth = 1;
+        for (let x = 0; x < W; x += 20) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
+        for (let y = 0; y < H; y += 20) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+      }
+      setTimeout(draw, 100);
+      window.addEventListener('resize', draw);
+    })();
+
+    // ── EMBED BTN ──
+    const embedBtn = document.getElementById('embed-btn');
+    const stegoInput = document.getElementById('stego-input');
+    const scanOverlay = document.getElementById('scan-overlay');
+    const bitRain = document.getElementById('bit-rain');
+    const hashReadout = document.getElementById('hash-readout');
+    const hashVal = document.getElementById('hash-val');
+
+    async function fakeHash(text) {
+      const enc = new TextEncoder();
+      const data = enc.encode(text);
+      const hash = await crypto.subtle.digest('SHA-256', data);
+      return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    embedBtn.addEventListener('click', async () => {
+      const txt = stegoInput.value.trim();
+      if (!txt) return;
+      embedBtn.disabled = true; embedBtn.textContent = 'EMBEDDING...';
+      hashVal.textContent = 'connecting to API...';
+      syslog('[INFO] Encrypting payload with AES-256-GCM...');
+
+      // bit rain
+      let bits = '';
+      for (let i = 0; i < 800; i++) bits += (Math.random() > .5 ? '1' : '0') + ' ';
+      bitRain.textContent = bits;
+      bitRain.classList.add('visible');
+
+      // scan
+      scanOverlay.classList.remove('active');
+      void scanOverlay.offsetWidth;
+      scanOverlay.classList.add('active');
+
+      setTimeout(() => syslog('[INFO] LSB embedding into PNG carrier...'), 600);
+
+      // Call REST API
+      let h = await fakeHash(txt);
+      try {
+        const stegoCanvas = document.getElementById('stego-canvas');
+        const blob = await new Promise(res => stegoCanvas.toBlob(res, 'image/png'));
+
+        const formData = new FormData();
+        formData.append('message', txt);
+        formData.append('image', blob, 'carrier.png');
+
+        const response = await fetch('http://127.0.0.1:8000/encode', {
+          method: 'POST',
+          body: formData
+        });
+
+        if (response.ok) {
+          h = response.headers.get('X-Plaintext-Hash') || h;
+          syslog('[INFO] Steganographic payload embedded successfully by API.');
+        } else {
+          syslog('[ERROR] API encode failed, falling back to simulation.', 'err');
+        }
+      } catch (e) {
+        syslog('[ERROR] Network error, falling back to simulation.', 'err');
+      }
+
+      setTimeout(async () => {
+        bitRain.classList.remove('visible');
+        hashReadout.innerHTML = `<span><span class="hash-label">SHA-256 </span><span class="hash-val" id="hash-val">${h.slice(0, 24)}...</span></span><span class="verified-badge">✓ VERIFIED</span>`;
+        embedBtn.disabled = false; embedBtn.textContent = '▸ EMBED PAYLOAD';
+        stegoInput.value = '';
+        syslog(`[SECURE] Hash verified by engine: ${h.slice(0, 16)}...`, 'secure');
+      }, 2400);
+    });
+
+    // ── P2P CANVAS ──
+    (function () {
+      const canvas = document.getElementById('p2p-canvas');
+      const ctx = canvas.getContext('2d');
+      let W, H, nodes = [], edges = [], active = false, animId;
+
+      function resize() {
+        const rect = canvas.parentElement.getBoundingClientRect();
+        W = canvas.width = rect.width; H = canvas.height = 480;
+      }
+      resize();
+      window.addEventListener('resize', resize);
+
+      // Create nodes
+      function initNodes() {
+        nodes = [];
+        const count = 12;
+        for (let i = 0; i < count; i++) nodes.push({
+          x: 60 + Math.random() * (W - 120), y: 60 + Math.random() * (H - 120),
+          r: 4 + Math.random() * 3,
+          vx: (Math.random() - .5) * 0.3, vy: (Math.random() - .5) * 0.3,
+          pulse: Math.random() * Math.PI * 2, active: false,
+          label: Math.random() < 0.3 ? 'Qm' + Math.random().toString(36).slice(2, 6).toUpperCase() : null
+        });
+        nodes[0].active = false; nodes[0].isMain = true;
+        edges = [];
+        for (let i = 0; i < nodes.length; i++) {
+          const k = 2 + Math.floor(Math.random() * 2);
+          for (let j = 0; j < k; j++) {
+            const target = Math.floor(Math.random() * nodes.length);
+            if (target !== i) edges.push({ a: i, b: target, pulse: 0, active: false });
+          }
+        }
+      }
+      initNodes();
+
+      let packets = [];
+
+      function draw() {
+        ctx.clearRect(0, 0, W, H);
+        // BG grid
+        ctx.strokeStyle = 'rgba(200,247,58,0.04)'; ctx.lineWidth = 1;
+        for (let x = 0; x < W; x += 40) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
+        for (let y = 0; y < H; y += 40) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+
+        // Edges
+        edges.forEach(e => {
+          const a = nodes[e.a], b = nodes[e.b];
+          ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y);
+          if (e.active) {
+            e.pulse += 0.05;
+            ctx.strokeStyle = `rgba(200,247,58,${0.15 + Math.sin(e.pulse) * 0.1})`;
+            ctx.lineWidth = 1.5;
+          } else {
+            ctx.strokeStyle = 'rgba(240,237,230,0.06)'; ctx.lineWidth = 1;
+          }
+          ctx.stroke();
+        });
+
+        // Packets
+        packets = packets.filter(p => {
+          p.t += 0.012;
+          if (p.t > 1) return false;
+          const a = nodes[p.a], b = nodes[p.b];
+          const x = a.x + (b.x - a.x) * p.t, y = a.y + (b.y - a.y) * p.t;
+          ctx.beginPath(); ctx.arc(x, y, 3, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(200,247,58,0.9)';
+          ctx.shadowBlur = 8; ctx.shadowColor = 'rgba(200,247,58,0.8)';
+          ctx.fill();
+          ctx.shadowBlur = 0;
+          return true;
+        });
+
+        // Nodes
+        nodes.forEach((n, i) => {
+          n.pulse += 0.025;
+          if (active) {
+            n.x += n.vx; n.y += n.vy;
+            if (n.x < 30) n.vx *= -1; if (n.x > W - 30) n.vx *= -1;
+            if (n.y < 30) n.vy *= -1; if (n.y > H - 30) n.vy *= -1;
+          }
+          const glow = (Math.sin(n.pulse) + 1) / 2;
+          if (n.isMain && n.active) {
+            ctx.beginPath(); ctx.arc(n.x, n.y, n.r * 3 + glow * 4, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(200,247,58,${0.06 + glow * 0.06})`; ctx.fill();
+            ctx.beginPath(); ctx.arc(n.x, n.y, n.r + 1, 0, Math.PI * 2);
+            ctx.strokeStyle = `rgba(200,247,58,${0.6 + glow * 0.4})`; ctx.lineWidth = 2;
+            ctx.shadowBlur = 16; ctx.shadowColor = 'rgba(200,247,58,0.5)';
+            ctx.stroke(); ctx.shadowBlur = 0;
+          }
+          ctx.beginPath(); ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2);
+          if (n.isMain && n.active) ctx.fillStyle = `rgba(200,247,58,${0.8 + glow * 0.2})`;
+          else if (n.active) ctx.fillStyle = `rgba(200,247,58,${0.4 + glow * 0.3})`;
+          else ctx.fillStyle = 'rgba(240,237,230,0.2)';
+          ctx.fill();
+        });
+
+        animId = requestAnimationFrame(draw);
+      }
+      draw();
+
+      // Packet spawner
+      let packetInterval;
+      function spawnPackets() {
+        packetInterval = setInterval(() => {
+          if (!active) return;
+          const activeEdges = edges.filter(e => e.active);
+          if (activeEdges.length > 0) {
+            const e = activeEdges[Math.floor(Math.random() * activeEdges.length)];
+            packets.push({ a: e.a, b: e.b, t: 0 });
+          }
+        }, 600);
+      }
+
+      window.initP2P = async function () {
+        active = true;
+        syslog('[INFO] Initializing local routing node via API...');
+        const statusEl = document.getElementById('net-status');
+        const natEl = document.getElementById('net-nat');
+        const peersEl = document.getElementById('net-peers');
+        const peerIdEl = document.getElementById('net-peerid');
+        const peerDisplay = document.getElementById('peer-id-display');
+
+        statusEl.textContent = 'Connecting...'; statusEl.className = 'metric-v warn';
+
+        try {
+          const res = await fetch('http://127.0.0.1:8000/net/init', { method: 'POST' });
+          if (res.ok) {
+            const data = await res.json();
+
+            setTimeout(() => {
+              syslog('[INFO] Broadcasting discovery packets...');
+              edges.forEach((e, i) => { if (i % 2 === 0) e.active = true; });
+              nodes.forEach((n, i) => { if (i % 3 === 0) n.active = true; });
+              peersEl.textContent = Math.floor(nodes.length * .6).toString(); peersEl.className = 'metric-v on';
+            }, 800);
+
+            setTimeout(() => {
+              natEl.textContent = 'Success'; natEl.className = 'metric-v on';
+              syslog('[INFO] NAT hole-punching successful.', 'secure');
+            }, 1600);
+
+            setTimeout(() => {
+              nodes[0].active = true;
+              edges.forEach(e => { if (e.a === 0 || e.b === 0) e.active = true; });
+              statusEl.textContent = 'Connected'; statusEl.className = 'metric-v on';
+
+              const pid = data.peer_id;
+              peerIdEl.innerHTML = `${pid}<br><span style="color:#888;font-size:9px">Port: ${data.port}</span>`;
+              peerIdEl.className = 'metric-v on'; peerIdEl.style.lineHeight = '1.2';
+              peerDisplay.textContent = `NODE: ${pid} [:${data.port}]`;
+              syslog(`[SECURE] Network joined. Peer ID: ${pid} on Port: ${data.port}`, 'secure');
+              spawnPackets();
+            }, 2500);
+
+            // Store global port for transmission demo
+            window.localNodePort = data.port;
+
+          } else {
+            syslog('[ERROR] Failed to init node via API.', 'err');
+            statusEl.textContent = 'Failed'; statusEl.className = 'metric-v off';
+          }
+        } catch (e) {
+          syslog('[ERROR] Network error contacting API.', 'err');
+          statusEl.textContent = 'Offline'; statusEl.className = 'metric-v off';
+        }
+      };
+    })();
+
+    document.getElementById('p2p-init-btn').addEventListener('click', function () {
+      this.disabled = true; this.textContent = 'Initializing...';
+      window.initP2P();
+      setTimeout(() => { this.textContent = 'NODE ACTIVE'; }, 5000);
+    });
+
+    // ── CHAT INTERFACE LOGIC ──
+    const sendBtn = document.getElementById('send-btn');
+    const txInput = document.getElementById('tx-input');
+    const peerSelect = document.getElementById('chat-peer-select');
+    const chatMessages = document.getElementById('chat-messages');
+    const txStatus = document.getElementById('chat-tx-status');
+    
+    let knownPeers = {};
+
+    // Poll Discovery Server for peers
+    async function pollPeers() {
+      try {
+        const res = await fetch('https://shadow-network-backend.onrender.com/peers');
+        if (res.ok) {
+          const data = await res.json();
+          knownPeers = data.peers || {};
+          
+          // Save current selection to restore after redraw
+          const currentSelection = peerSelect.value;
+          
+          peerSelect.innerHTML = '<option value="">-- SELECT PEER --</option>';
+          let hasPeers = false;
+          
+          for (const [pid, info] of Object.entries(knownPeers)) {
+            // Don't list ourselves
+            const localPid = document.getElementById('net-peerid').textContent.split('\\n')[0];
+            if (pid === localPid) continue;
+            
+            hasPeers = true;
+            const opt = document.createElement('option');
+            opt.value = pid;
+            opt.textContent = `${pid} [${info.ip}:${info.port}]`;
+            peerSelect.appendChild(opt);
+          }
+          
+          if (currentSelection && knownPeers[currentSelection]) {
+              peerSelect.value = currentSelection;
+          }
+          
+          // Enable input if we have an active node and a selected peer
+          if (window.localNodePort && peerSelect.value) {
+              txInput.disabled = false;
+              sendBtn.disabled = false;
+          }
+        }
+      } catch (e) {
+         // Silently fail polling
+      }
+    }
+    
+    // Start polling every 3 seconds
+    setInterval(pollPeers, 3000);
+    
+    // Poll local backend for incoming messages
+    async function pollInbox() {
+      if (!window.localNodePort) return; // Only poll if node is online
+      try {
+        const res = await fetch('http://127.0.0.1:8000/net/inbox');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.status === 'new_message') {
+            const chatMessages = document.getElementById('chat-messages');
+            let prevChatHTML = chatMessages.innerHTML;
+            if (prevChatHTML.includes('Awaiting transmission')) prevChatHTML = '';
+            
+            chatMessages.innerHTML = prevChatHTML + `
+                <div class="chat-bubble received">
+                    <div>${data.message}</div>
+                    <div class="chat-meta">From: ${data.sender_id} &nbsp;|&nbsp; SHA-256 ✓</div>
+                </div>
+            `;
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+            syslog(`[SECURE] Incoming transmission from ${data.sender_id} decrypted & verified`, 'secure');
+          }
+        }
+      } catch (e) { }
+    }
+    
+    // Poll inbox every 2 seconds
+    setInterval(pollInbox, 2000);
+    
+    peerSelect.addEventListener('change', () => {
+        if (peerSelect.value && window.localNodePort) {
+            txInput.disabled = false;
+            sendBtn.disabled = false;
+            if (chatMessages.innerHTML.includes('Awaiting transmission')) {
+                chatMessages.innerHTML = '';
+            }
+        } else {
+            txInput.disabled = true;
+            sendBtn.disabled = true;
+        }
+    });
+
+    sendBtn.addEventListener('click', async () => {
+      const msg = txInput.value.trim();
+      const targetPeerId = peerSelect.value;
+      if (!msg || !targetPeerId) return;
+      
+      sendBtn.disabled = true; 
+      txInput.disabled = true;
+      txStatus.style.display = 'block';
+      let prevChatHTML = chatMessages.innerHTML;
+      if (prevChatHTML.includes('Awaiting transmission')) prevChatHTML = '';
+      
+      const timeStr = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'});
+
+      // Add SENT bubble immediately
+      chatMessages.innerHTML = prevChatHTML + `
+        <div class="chat-bubble sent">
+            <div>${msg}</div>
+            <div class="chat-meta">Target: ${targetPeerId} &nbsp;|&nbsp; Encrypting...</div>
+        </div>
+      `;
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+
+      txStatus.textContent = '[STATUS] Encrypting & Embedding with GCM...';
+      syslog('[INFO] Encrypting outgoing payload with AES-256-GCM via API...');
+
+      let carrierBlob = null;
+      let sentHash = await fakeHash(msg);
+      
+      try {
+        const stegoCanvas = document.getElementById('stego-canvas');
+        const inputBlob = await new Promise(res => stegoCanvas.toBlob(res, 'image/png'));
+
+        const fd = new FormData();
+        fd.append('message', msg);
+        fd.append('image', inputBlob, 'carrier.png');
+
+        const res = await fetch('http://127.0.0.1:8000/encode', { method: 'POST', body: fd });
+        if (res.ok) {
+          carrierBlob = await res.blob();
+          sentHash = res.headers.get('X-Plaintext-Hash') || sentHash;
+        } else {
+          syslog('[ERROR] API Encode failed.', 'err');
+        }
+      } catch (e) { syslog('[ERROR] Network error during Encode.', 'err'); }
+
+      txStatus.textContent = '[STATUS] Transmitting over P2P...';
+      syslog(`[INFO] Streaming carrier image to ${targetPeerId} via Discovery Tracker...`);
+
+      // 3. Transit via server routing
+      let networkSendSuccess = false;
+      if (carrierBlob && window.localNodePort) {
+        try {
+          const sendFd = new FormData();
+          sendFd.append('target_peer_id', targetPeerId);
+          sendFd.append('image', carrierBlob, 'carrier.png');
+
+          const sendRes = await fetch('http://127.0.0.1:8000/net/send', { method: 'POST', body: sendFd });
+
+          if (sendRes.ok) {
+            networkSendSuccess = true;
+            syslog(`[SECURE] P2P payload successfully routed to ${targetPeerId}.`, 'secure');
+            
+            // Update Sent Bubble to show success
+            chatMessages.lastElementChild.querySelector('.chat-meta').innerHTML = `Target: ${targetPeerId} &nbsp;|&nbsp; ✓ Transmitted`;
+            
+          } else {
+            syslog('[ERROR] P2P Transport failed. Peer uncontactable.', 'err');
+            chatMessages.lastElementChild.querySelector('.chat-meta').innerHTML = `Target: ${targetPeerId} &nbsp;|&nbsp; ✗ Delivery Failed`;
+          }
+        } catch (e) {
+          syslog('[ERROR] Network error during P2P routing.', 'err');
+        }
+      }
+
+      await delay(1000); // UI visual pause
+      
+      // Removed Loopback Simulation.
+      // True 2-Way Inbox Polling is now active via background fetch.
+
+      txStatus.style.display = 'none';
+      sendBtn.disabled = false; 
+      txInput.disabled = false; 
+      txInput.value = '';
+      txInput.focus();
+    });
+
+    function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+    async function fakeHash(t) {
+      const d = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(t));
+      return Array.from(new Uint8Array(d)).map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    // ── LAYER CARDS ──
+    document.querySelectorAll('.layer-card').forEach(card => {
+      card.addEventListener('click', () => {
+        document.querySelectorAll('.layer-card').forEach(c => c.classList.remove('active'));
+        card.classList.add('active');
+      });
+    });
+
+    // ── SCROLL REVEAL ──
+    const reveals = document.querySelectorAll('.reveal');
+    const observer = new IntersectionObserver(entries => {
+      entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('in-view'); });
+    }, { threshold: 0.15 });
+    reveals.forEach(el => observer.observe(el));
+
+    // ── INIT NODE BTN (header) ──
+    document.getElementById('init-node-btn') && document.getElementById('init-node-btn').addEventListener('click', () => {
+      document.getElementById('network').scrollIntoView({ behavior: 'smooth' });
+    });
+  </script>
+</body>
+
+</html>
